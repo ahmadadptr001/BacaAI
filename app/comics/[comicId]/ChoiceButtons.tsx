@@ -5,9 +5,17 @@ import { useRouter } from "next/navigation";
 import { selectChoice, writeOwnDirection } from "@/app/actions/reading";
 import Spinner from "@/components/Spinner";
 import { PenIcon } from "@/components/icons";
+import { NEXT_IMAGES_KEY } from "./NextChapterImages";
 import type { Choice } from "@/lib/types";
 
 const MAX_LEN = 300;
+
+/** The panel count the reader picked in the header, for the next chapter. */
+function desiredImages(): number | undefined {
+  if (typeof window === "undefined") return undefined;
+  const v = Number(localStorage.getItem(NEXT_IMAGES_KEY));
+  return Number.isFinite(v) && v >= 1 ? Math.floor(v) : undefined;
+}
 
 /**
  * The decision point. Readers can pick one of the AI's preset directions, or
@@ -64,7 +72,7 @@ export default function ChoiceButtons({
 
   function choose(choiceId: string) {
     if (!requireAuth()) return;
-    advance(() => selectChoice(comicId, choiceId), choiceId);
+    advance(() => selectChoice(comicId, choiceId, desiredImages()), choiceId);
   }
 
   function submitCustom() {
@@ -73,7 +81,10 @@ export default function ChoiceButtons({
       setError("Tulis dulu arah cerita yang kamu inginkan.");
       return;
     }
-    advance(() => writeOwnDirection(comicId, chapterId, custom), "__custom__");
+    advance(
+      () => writeOwnDirection(comicId, chapterId, custom, desiredImages()),
+      "__custom__"
+    );
   }
 
   return (

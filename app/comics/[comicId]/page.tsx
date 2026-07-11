@@ -5,7 +5,7 @@ import ChoiceButtons from "./ChoiceButtons";
 import ChoiceLoader from "./ChoiceLoader";
 import ChapterJump from "./ChapterJump";
 import ChapterBody from "./ChapterBody";
-import ChapterImageControl from "./ChapterImageControl";
+import NextChapterImages from "./NextChapterImages";
 import RestartButton from "./RestartButton";
 import { createClient } from "@/lib/supabase/server";
 import { getChapterLineage } from "@/lib/reading";
@@ -134,6 +134,12 @@ export default async function ReaderPage({
         currentChapterId={chapter.id}
       />
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6">
+        {/* Set how many panels the NEXT chapter gets — kept up here so readers
+            don't have to scroll to change it. */}
+        {user && isLatest && (
+          <NextChapterImages max={maxImages} isAdmin={isAdmin} />
+        )}
+
         <article className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
           <ChapterBody
             chapterNumber={chapter.chapter_number}
@@ -142,16 +148,6 @@ export default async function ReaderPage({
             text={chapter.content_text}
             images={chapter.image_urls ?? []}
           >
-            {user && (
-              <ChapterImageControl
-                comicId={comicId}
-                chapterId={chapter.id}
-                current={chapter.image_urls?.length ?? 0}
-                max={maxImages}
-                isAdmin={isAdmin}
-              />
-            )}
-
             {/* Decision point */}
             <div className="mt-8">
               {isLatest ? (

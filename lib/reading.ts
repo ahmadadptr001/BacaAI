@@ -4,9 +4,11 @@ import type { Chapter, Choice, Comic } from "./types";
 import {
   generateChoices,
   generateNextChapter,
+  describeChapterScenes,
   type StorySoFar,
 } from "./ai";
 import { searchImage } from "./images";
+import { splitIntoParts } from "./chapter";
 import { nextChapterNumber } from "./progress";
 
 /**
@@ -161,15 +163,63 @@ export async function generateChoicesForChapter(
 }
 
 /**
+ * Build the panel images for a freshly generated chapter. For a single image
+ * we reuse the chapter's own scene phrase. For several, we split the chapter
+ * into that many ordered parts and ask the AI for a scene per part, so the
+ * sequence of images follows the story's flow. Best-effort: any failure yields
+ * fewer (or no) images rather than blocking the chapter.
+ */
+async function buildChapterImages(
+  comic: Pick<Comic, "title" | "description">,
+  generated: { title: string; content_text: string; image_query: string | null },
+  count: number,
+  signal?: AbortSignal
+): Promise<string[]> {
+  const n = Math.max(1, Math.floor(count) || 1);
+  try {
+    if (n <= 1) {
+      const url = generated.image_query
+        ? await searchImage(generated.image_query, signal)
+        : null;
+      return url ? [url] : [];
+    }
+
+    const parts = splitIntoParts(generated.content_text, n);
+    const queries = await describeChapterScenes(
+      { title: comic.title, description: comic.description },
+      generated.title,
+      parts,
+      signal
+    );
+    const urls = (
+      await Promise.all(queries.map((q) => searchImage(q, signal)))
+    ).filter((u): u is string => Boolean(u));
+    if (urls.length > 0) return urls;
+
+    // Nothing came back — fall back to a single scene so the chapter isn't bare.
+    const one = generated.image_query
+      ? await searchImage(generated.image_query, signal)
+      : null;
+    return one ? [one] : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Resolve the destination chapter for a choice.
  *  - If the choice already links to a chapter, return it (cached path).
  *  - Otherwise call the AI with the full story so far, insert the new chapter
- *    (+ a fitting web image and its follow-up choices), backfill
+ *    (+ `imageCount` fitting panel images and its follow-up choices), backfill
  *    `leads_to_chapter_id`, and return the new chapter id.
+ *
+ * `imageCount` is the reader's chosen number of panels for THIS newly generated
+ * chapter (already clamped to their role's max by the caller).
  */
 export async function advanceFromChoice(
   supabase: DB,
   choiceId: string,
+  imageCount = 1,
   signal?: AbortSignal
 ): Promise<string> {
   const { choice, chapter, comic } = await loadChoiceContext(supabase, choiceId);
@@ -191,10 +241,13 @@ export async function advanceFromChoice(
     signal
   );
 
-  // Find a real, fitting photo from the web (text model can't draw).
-  const imageUrl = generated.image_query
-    ? await searchImage(generated.image_query, signal)
-    : null;
+  // Draw the panels (text model can't draw), split to follow the story flow.
+  const imageUrls = await buildChapterImages(
+    { title: comic.title, description: comic.description },
+    generated,
+    imageCount,
+    signal
+  );
 
   const { data: newChapter, error: insertErr } = await supabase
     .from("chapters")
@@ -203,7 +256,7 @@ export async function advanceFromChoice(
       chapter_number: nextChapterNumber(chapter),
       title: generated.title,
       content_text: generated.content_text,
-      image_urls: imageUrl ? [imageUrl] : [],
+      image_urls: imageUrls,
       is_generated: true,
     })
     .select("*")

@@ -85,3 +85,22 @@ html {
     opacity: 1;
   }
 }
+
+/* "Berkilau": a soft highlight that sweeps across a freshly-arrived item. */
+@keyframes notifShine {
+  0% {
+    transform: translateX(-140%) skewX(-12deg);
+  }
+  55%,
+  100% {
+    transform: translateX(240%) skewX(-12deg);
+  }
+}
+.notif-shine {
+  animation: notifShine 2.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .notif-shine {
+    animation: none;
+  }
+}

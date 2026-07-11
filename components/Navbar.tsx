@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getAuthContext } from "@/lib/authz";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import ThemeToggle from "./ThemeToggle";
 import UserMenu from "./UserMenu";
 import NotificationBell, { type NotifItem } from "./NotificationBell";
@@ -11,6 +11,14 @@ interface ChapterItem {
   id: string;
   chapter_number: number;
   title: string;
+}
+
+/** A friendly display name from an email's local part (no PII beyond that). */
+function authorName(email: string | null | undefined): string {
+  if (!email) return "Pengguna";
+  const local = email.split("@")[0]?.replace(/[._]+/g, " ").trim();
+  if (!local) return "Pengguna";
+  return local.charAt(0).toUpperCase() + local.slice(1);
 }
 
 /**
@@ -32,27 +40,47 @@ export default async function Navbar({
 }) {
   const { user, isAdmin } = await getAuthContext();
 
-  // New stories published by users in the last 24h (feed resets itself daily).
-  // Comics are publicly readable, so no service-role/profile join is needed —
-  // and we deliberately don't expose the author's identity here.
+  // New stories published by users in the last 24h (feed resets itself daily),
+  // with the author's display name. We use the service-role client because the
+  // profiles RLS policy hides other users' rows from a normal session.
   const since = new Date(
     new Date().getTime() - 24 * 60 * 60 * 1000
   ).toISOString();
-  const supabase = await createClient();
-  const { data: recent } = await supabase
+  const admin = createAdminClient();
+  const { data: recent } = await admin
     .from("comics")
-    .select("id, title, created_at")
+    .select("id, title, created_at, created_by")
     .not("created_by", "is", null)
     .gte("created_at", since)
     .order("created_at", { ascending: false })
     .limit(12);
-  const notifications: NotifItem[] = (recent ?? []).map(
-    (c: { id: string; title: string; created_at: string }) => ({
-      id: c.id,
-      title: c.title,
-      createdAt: c.created_at,
-    })
-  );
+  const rows = (recent ?? []) as {
+    id: string;
+    title: string;
+    created_at: string;
+    created_by: string | null;
+  }[];
+
+  const authorIds = [
+    ...new Set(rows.map((r) => r.created_by).filter((v): v is string => !!v)),
+  ];
+  const emailById = new Map<string, string | null>();
+  if (authorIds.length > 0) {
+    const { data: profs } = await admin
+      .from("profiles")
+      .select("id, email")
+      .in("id", authorIds);
+    for (const p of (profs ?? []) as { id: string; email: string | null }[]) {
+      emailById.set(p.id, p.email);
+    }
+  }
+
+  const notifications: NotifItem[] = rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    createdAt: r.created_at,
+    author: authorName(r.created_by ? emailById.get(r.created_by) : null),
+  }));
 
   const showJump =
     comicId && currentChapterId && chapters && chapters.length > 1;
