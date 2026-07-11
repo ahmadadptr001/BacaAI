@@ -1,13 +1,24 @@
 // Shared domain types. These mirror the tables in supabase/schema.sql.
 
+/** A locked visual description of one character, reused for consistent art. */
+export interface CastMember {
+  /** Character name as used in the story (the lookup key). */
+  name: string;
+  /** Fixed English visual description: gender, hair, face, build, outfit. */
+  brief: string;
+}
+
 export interface Comic {
   id: string;
   title: string;
   description: string | null;
   cover_image_url: string | null;
   created_by?: string | null;
-  /** Fixed visual description of the main character, for consistent art. */
-  character_brief?: string | null;
+  /**
+   * Locked visual descriptions of every character that has appeared, so any
+   * character keeps the same look whenever they are drawn again.
+   */
+  character_sheet?: CastMember[] | null;
   created_at: string;
 }
 

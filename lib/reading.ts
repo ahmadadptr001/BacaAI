@@ -1,11 +1,10 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Chapter, Choice, Comic } from "./types";
+import type { CastMember, Chapter, Choice, Comic } from "./types";
 import {
   generateChoices,
   generateNextChapter,
-  describeChapterScenes,
-  describeMainCharacters,
+  planChapterArt,
   type StorySoFar,
 } from "./ai";
 import { searchImage } from "./images";
@@ -164,107 +163,91 @@ export async function generateChoicesForChapter(
   return (inserted ?? []) as Choice[];
 }
 
-/** Prepend the main character's fixed look to a scene so art stays consistent. */
-function withCharacter(brief: string, scene: string): string {
-  const s = scene.trim();
-  return brief ? `${brief}. ${s}` : s;
+/** Parse the stored cast sheet (jsonb) into a typed, validated array. */
+function parseCast(value: Comic["character_sheet"]): CastMember[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
+      (c): c is CastMember =>
+        !!c && typeof c.name === "string" && typeof c.brief === "string"
+    )
+    .map((c) => ({ name: c.name, brief: c.brief }));
 }
 
-/**
- * The main character's fixed visual description for a comic. Cached on the
- * comic row so every chapter's art renders the same person. Generated once from
- * the opening chapter; persisted with the service role (comics have no UPDATE
- * RLS policy). Returns "" if it can't be produced (art still works, just less
- * strictly consistent).
- */
-async function ensureCharacterBrief(
-  comic: Comic,
-  lineage: Chapter[]
-): Promise<string> {
-  if (comic.character_brief && comic.character_brief.trim()) {
-    return comic.character_brief.trim();
-  }
-  const opening = lineage[0]?.content_text ?? "";
-  if (!opening) return "";
-
-  let brief = "";
-  try {
-    brief = await describeMainCharacters(
-      { title: comic.title, description: comic.description },
-      opening
-    );
-  } catch {
-    brief = "";
-  }
-  if (brief) {
-    try {
-      await createAdminClient()
-        .from("comics")
-        .update({ character_brief: brief })
-        .eq("id", comic.id);
-    } catch {
-      // Best-effort cache; not fatal if it fails to persist.
+/** Merge newly-introduced characters into the locked cast (existing wins). */
+function mergeCast(
+  existing: CastMember[],
+  additions: CastMember[]
+): CastMember[] {
+  const seen = new Set(existing.map((c) => c.name.toLowerCase()));
+  const merged = [...existing];
+  for (const c of additions) {
+    const key = c.name.toLowerCase();
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      merged.push(c);
     }
   }
-  return brief;
+  return merged;
 }
 
 /**
- * Build the panel images for a freshly generated chapter. For a single image
- * we reuse the chapter's own scene phrase. For several, we split the chapter
- * into that many ordered parts and ask the AI for a scene per part, so the
- * sequence of images follows the story's flow. Every prompt is prefixed with
- * the main character's fixed look (`characterBrief`) so the character stays
- * consistent panel to panel and chapter to chapter. Best-effort: any failure
- * yields fewer (or no) images rather than blocking the chapter.
+ * Build the panel images for a freshly generated chapter AND keep the comic's
+ * cast registry up to date. Splits the chapter into `count` ordered parts, then
+ * asks the AI to (a) lock the look of any newly appearing character and (b) map
+ * each part to a scene + the characters present in it. Each character's fixed
+ * description is prepended to the scenes they appear in, so EVERY character (not
+ * just the lead) looks the same whenever redrawn. Returns the images and the
+ * (possibly grown) cast. Best-effort: any failure falls back to a single plain
+ * image.
  */
 async function buildChapterImages(
   comic: Pick<Comic, "title" | "description">,
   generated: { title: string; content_text: string; image_query: string | null },
   count: number,
-  characterBrief: string,
+  existingCast: CastMember[],
   signal?: AbortSignal
-): Promise<string[]> {
+): Promise<{ urls: string[]; cast: CastMember[] }> {
   const n = Math.max(1, Math.floor(count) || 1);
-  try {
-    if (n <= 1) {
-      const url = generated.image_query
-        ? await searchImage(
-            withCharacter(characterBrief, generated.image_query),
-            signal
-          )
-        : null;
-      return url ? [url] : [];
-    }
+  const parts = splitIntoParts(generated.content_text, n);
 
-    const parts = splitIntoParts(generated.content_text, n);
-    const queries = await describeChapterScenes(
+  try {
+    const plan = await planChapterArt(
       { title: comic.title, description: comic.description },
       generated.title,
       parts,
-      characterBrief,
+      existingCast,
       signal
     );
-    const urls = (
-      await Promise.all(
-        queries.map((q) =>
-          searchImage(withCharacter(characterBrief, q), signal)
-        )
-      )
-    ).filter((u): u is string => Boolean(u));
-    if (urls.length > 0) return urls;
+    const cast = mergeCast(existingCast, plan.newCharacters);
+    const briefByName = new Map(
+      cast.map((c) => [c.name.toLowerCase(), c.brief])
+    );
 
-    // Nothing came back — fall back to a single scene so the chapter isn't bare.
-    const one = generated.image_query
-      ? await searchImage(
-          withCharacter(characterBrief, generated.image_query),
-          signal
-        )
-      : null;
-    return one ? [one] : [];
+    const prompts = parts.map((_, i) => {
+      const panel = plan.panels[i] ?? plan.panels[plan.panels.length - 1];
+      const scene =
+        panel?.scene?.trim() || generated.image_query || "cinematic anime scene";
+      const briefs = (panel?.characters ?? [])
+        .map((name) => briefByName.get(name.toLowerCase()))
+        .filter((b): b is string => Boolean(b));
+      // Character looks first (locked), then what's happening + where.
+      return [...briefs, scene].join(". ");
+    });
+
+    const urls = (
+      await Promise.all(prompts.map((p) => searchImage(p, signal)))
+    ).filter((u): u is string => Boolean(u));
+    if (urls.length > 0) return { urls, cast };
   } catch {
-    return [];
+    // fall through to the plain fallback below
   }
+
+  // Fallback: a single image from the chapter's own scene phrase, no cast.
+  const one = generated.image_query
+    ? await searchImage(generated.image_query, signal)
+    : null;
+  return { urls: one ? [one] : [], cast: existingCast };
 }
 
 /**
@@ -302,16 +285,28 @@ export async function advanceFromChoice(
     signal
   );
 
-  // Lock the main character's look (cached on the comic) so every chapter's
-  // art shows the same person, then draw the panels along the story flow.
-  const characterBrief = await ensureCharacterBrief(comic, lineage);
-  const imageUrls = await buildChapterImages(
+  // Keep a cast registry on the comic so EVERY character (not just the lead)
+  // keeps the same look whenever redrawn, then draw the panels along the flow.
+  const existingCast = parseCast(comic.character_sheet);
+  const { urls: imageUrls, cast } = await buildChapterImages(
     { title: comic.title, description: comic.description },
     generated,
     imageCount,
-    characterBrief,
+    existingCast,
     signal
   );
+  // Persist any newly introduced characters (service role: comics has no UPDATE
+  // RLS policy). Best-effort — never block a chapter on it.
+  if (cast.length > existingCast.length) {
+    try {
+      await createAdminClient()
+        .from("comics")
+        .update({ character_sheet: cast })
+        .eq("id", comic.id);
+    } catch {
+      // best-effort cache
+    }
+  }
 
   const { data: newChapter, error: insertErr } = await supabase
     .from("chapters")

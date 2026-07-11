@@ -1,6 +1,6 @@
 import "server-only";
 import OpenAI from "openai";
-import type { Chapter, Choice, Comic } from "./types";
+import type { CastMember, Chapter, Choice, Comic } from "./types";
 
 /**
  * AI integration for generating comic chapters.
@@ -94,6 +94,18 @@ Sebagai penulis, arah alur yang dipilih untuk kelanjutan kisah:
 
 Tulis BAB BERIKUTNYA yang mengembangkan arah tersebut dan konsisten dengan
 seluruh cerita di atas. Buat 3-5 paragraf yang hidup dan MEMAJUKAN cerita.
+
+KESINAMBUNGAN (WAJIB, jangan dilanggar):
+- Bab ini harus MENYAMBUNG LANGSUNG dari akhir bab sebelumnya. Mulai dari
+  situasi, tempat, dan waktu persis di mana cerita tadi berhenti.
+- Ikuti arah yang dipilih di atas SEBAGAI INTI bab ini, bukan sekadar disenggol.
+- JANGAN melompat terlalu jauh: hindari lompatan waktu besar (mis. "bertahun-tahun
+  kemudian"), perpindahan tempat/adegan mendadak tanpa transisi, atau
+  memperkenalkan konflik/tokoh besar yang muncul entah dari mana. Satu bab =
+  satu langkah kecil yang masuk akal ke depan.
+- Hormati fakta yang sudah ada (siapa hadir, luka/kondisi, benda yang dibawa,
+  hubungan antar tokoh). Jangan menghidupkan yang sudah tiada atau melupakan
+  kejadian penting.
 
 Gaya penulisan (WAJIB, agar tidak membosankan):
 - WAJIB ada PERCAKAPAN antar tokoh. Tulis SETIAP baris dialog sebagai paragraf
@@ -245,37 +257,52 @@ export async function generateNextChapter(
   };
 }
 
-function buildScenesPrompt(
+/** One panel: an English scene + which cast members (by name) appear in it. */
+export interface ChapterArtPanel {
+  scene: string;
+  characters: string[];
+}
+
+/** The art plan for a chapter: any newly introduced cast + the per-part panels. */
+export interface ChapterArtPlan {
+  newCharacters: CastMember[];
+  panels: ChapterArtPanel[];
+}
+
+function buildArtPlanPrompt(
   comic: Pick<Comic, "title" | "description">,
   chapterTitle: string,
   parts: string[],
-  characterBrief: string
+  cast: CastMember[]
 ): string {
   const n = parts.length;
-  const listed = parts
-    .map((p, i) => `[BAGIAN ${i + 1}]\n${p}`)
-    .join("\n\n");
-  const shape = parts.map(() => `"english scene phrase"`).join(", ");
+  const listed = parts.map((p, i) => `[BAGIAN ${i + 1}]\n${p}`).join("\n\n");
+  const locked =
+    cast.length > 0
+      ? cast.map((c) => `- ${c.name}: ${c.brief}`).join("\n")
+      : "(belum ada)";
   return `${PERSONA}
 
-Kamu membuat STORYBOARD gambar untuk SATU bab komik. Bab ini sudah dibagi
-menjadi ${n} BAGIAN berurutan sesuai alur cerita. Untuk SETIAP bagian, buat satu
-"image_query": deskripsi adegan visual PALING KUNCI dari bagian itu, dalam
-Bahasa Inggris, 6-12 kata. Fokus pada AKSI/POSISI tokoh + LATAR/TEMPAT +
-suasana/waktu (mis. "swordsman kneeling in a burning shrine at night",
-"girl running across a rooftop under heavy rain"). Pakai kata benda konkret;
-JANGAN pakai kata abstrak/emosi ("mystery", "tension", "hope"); JANGAN sertakan
-nama tokoh atau nama tempat fiktif. (Gaya animasi ditambahkan otomatis.)
+Kamu menyiapkan STORYBOARD sekaligus menjaga KONSISTENSI KARAKTER untuk ilustrasi
+SATU bab komik. Bab ini dibagi menjadi ${n} BAGIAN berurutan sesuai alur.
 
-TOKOH UTAMA (penampilan TETAP): ${characterBrief || "(sesuai cerita, jaga konsisten)"}.
-JANGAN mendeskripsikan ulang wajah/rambut/pakaian/jenis kelamin tokoh dalam
-query — penampilan itu ditambahkan otomatis agar SAMA di setiap gambar. Cukup
-tuliskan apa yang tokoh LAKUKAN dan DI MANA. Jika sebuah bagian tidak
-menampilkan tokoh utama, buat query LATAR/pemandangan saja.
+KARAKTER YANG SUDAH DIKUNCI (penampilan TIDAK BOLEH diubah, pakai apa adanya):
+${locked}
 
-SANGAT PENTING: query ke-i HARUS benar-benar menggambarkan isi BAGIAN ke-i itu
-sendiri (bukan bagian lain), sehingga urutan gambar mengikuti persis alur cerita
-bab ini dari awal sampai akhir.
+Kerjakan DUA hal:
+1) "new_characters": untuk SETIAP karakter yang MUNCUL di bab ini tetapi BELUM ada
+   di daftar terkunci di atas, tetapkan penampilan visual TETAP-nya. Tiap entri:
+   { "name": "<nama persis seperti di cerita>", "brief": "<deskripsi Inggris
+   konkret: jenis kelamin+usia, warna & gaya rambut, warna mata, ciri wajah,
+   postur tubuh, pakaian/atribut>" }. JANGAN masukkan karakter yang sudah
+   terkunci. Jika tak ada yang baru, kembalikan [].
+2) "panels": TEPAT ${n} item, berurutan sesuai bagian. Tiap item:
+   - "scene": Bahasa Inggris 6-12 kata tentang AKSI + LATAR/TEMPAT + suasana pada
+     bagian itu. JANGAN mendeskripsikan penampilan karakter (diambil dari daftar).
+     Boleh berupa pemandangan tanpa tokoh jika bagian itu memang tanpa karakter.
+   - "characters": daftar NAMA karakter yang benar-benar tampak di bagian itu
+     (HARUS cocok dengan nama di daftar terkunci atau di new_characters). Pakai []
+     bila tak ada tokoh.
 
 KOMIK: "${comic.title}"
 BAB: "${chapterTitle}"
@@ -283,82 +310,68 @@ BAB: "${chapterTitle}"
 ${listed}
 
 Balas HANYA dengan JSON valid, tanpa markdown, persis dalam bentuk ini:
-{ "queries": [${shape}] }
-dengan TEPAT ${n} item, berurutan sesuai bagian di atas.`;
+{ "new_characters": [{ "name": "...", "brief": "..." }],
+  "panels": [{ "scene": "...", "characters": ["..."] }] }
+"panels" WAJIB berisi TEPAT ${n} item berurutan.`;
 }
 
-/**
- * For a chapter split into ordered `parts`, returns one English image query per
- * part — each describing the key visual of THAT part, so a sequence of images
- * tracks the chapter's flow. `characterBrief` is the main character's fixed
- * look; scenes describe the character's action while the appearance itself is
- * prepended by the caller (keeping it identical across panels/chapters). Always
- * returns exactly `parts.length` queries (padding a short reply).
- */
-export async function describeChapterScenes(
-  comic: Pick<Comic, "title" | "description">,
-  chapterTitle: string,
-  parts: string[],
-  characterBrief: string,
-  signal?: AbortSignal
-): Promise<string[]> {
-  if (parts.length === 0) return [];
-  const raw = await callModel(
-    buildScenesPrompt(comic, chapterTitle, parts, characterBrief),
-    signal
-  );
-  const parsed = parseModelJson(raw);
-  const queries = toStringArray(parsed.queries, []);
-
-  // Align to exactly one query per part. If the model returned too few, reuse
-  // the last good one (a repeat beats a missing panel).
-  const out: string[] = [];
-  for (let i = 0; i < parts.length; i++) {
-    out.push(
-      queries[i] ??
-        queries[queries.length - 1] ??
-        "dramatic cinematic anime scene"
-    );
+function toCast(value: unknown): CastMember[] {
+  if (!Array.isArray(value)) return [];
+  const out: CastMember[] = [];
+  for (const v of value) {
+    if (v && typeof v === "object") {
+      const name = toText((v as Record<string, unknown>).name);
+      const brief = toText((v as Record<string, unknown>).brief);
+      if (name && brief) out.push({ name, brief });
+    }
   }
   return out;
 }
 
 /**
- * Establish the main character's FIXED visual look from the opening chapter, so
- * every illustration can render the same person (same gender, hair, face,
- * build, outfit). Returns a concise English description with no name/setting,
- * or "" if the model can't produce one. Generated once per comic and cached.
+ * Plan a chapter's artwork with cast consistency. Given the chapter split into
+ * ordered `parts` and the comic's already-locked `cast`, the model returns:
+ *  - `newCharacters`: fixed looks for any character appearing here for the first
+ *    time (existing cast is passed in and must NOT be re-described), and
+ *  - `panels`: one scene per part plus the names of the characters in it.
+ * The caller prepends each named character's locked brief to the scene, so every
+ * character keeps the same look across panels and chapters. Panels are aligned
+ * to exactly `parts.length`.
  */
-export async function describeMainCharacters(
+export async function planChapterArt(
   comic: Pick<Comic, "title" | "description">,
-  openingStory: string,
+  chapterTitle: string,
+  parts: string[],
+  cast: CastMember[],
   signal?: AbortSignal
-): Promise<string> {
-  const prompt = `${PERSONA}
-
-Dari naskah pembuka berikut, TETAPKAN penampilan visual TETAP untuk TOKOH UTAMA,
-agar bisa dipakai ulang di semua ilustrasi bab (supaya wajah & sosoknya
-konsisten). Tulis dalam Bahasa Inggris sebagai SATU frasa deskriptif ringkas
-(maks ~30 kata). WAJIB sebutkan secara konkret dan spesifik:
-- jenis kelamin dan perkiraan usia (mis. "teenage boy ~17", "young woman ~20"),
-- warna dan gaya rambut (mis. "short messy black hair", "long silver braid"),
-- warna mata dan ciri wajah,
-- bentuk/postur tubuh (mis. "lean athletic", "petite"),
-- pakaian & atribut khas (mis. "dark hooded cloak, silver longsword").
-Pakai atribut visual konkret. TANPA nama tokoh, TANPA latar, TANPA aksi. Jika
-naskah tidak menyebut detail, TENTUKAN sendiri yang masuk akal lalu kunci.
-
-KOMIK: "${comic.title}"
-PREMIS: ${comic.description ?? "(tidak ada)"}
-
-NASKAH PEMBUKA:
-${openingStory}
-
-Balas HANYA dengan JSON valid, tanpa markdown, persis:
-{ "character": "english visual description" }`;
-  const raw = await callModel(prompt, signal);
+): Promise<ChapterArtPlan> {
+  if (parts.length === 0) return { newCharacters: [], panels: [] };
+  const raw = await callModel(
+    buildArtPlanPrompt(comic, chapterTitle, parts, cast),
+    signal
+  );
   const parsed = parseModelJson(raw);
-  return toText(parsed.character);
+
+  const newCharacters = toCast(parsed.new_characters);
+
+  const rawPanels = Array.isArray(parsed.panels) ? parsed.panels : [];
+  const panels: ChapterArtPanel[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const p = rawPanels[i] as Record<string, unknown> | undefined;
+    const scene = p ? toText(p.scene) : "";
+    const characters = Array.isArray(p?.characters)
+      ? (p!.characters as unknown[])
+          .filter((c): c is string => typeof c === "string")
+          .map((c) => c.trim())
+          .filter(Boolean)
+      : [];
+    panels.push({
+      scene: scene || "cinematic anime scene",
+      characters,
+    });
+  }
+
+  return { newCharacters, panels };
 }
 
 /** An AI-drafted comic to pre-fill the admin's "add comic" form. */

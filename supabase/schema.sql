@@ -54,9 +54,10 @@ create table if not exists public.comics (
   -- Who created this story (any signed-in reader can publish one). Null for
   -- older/seed comics. Set null (not cascade) so a story outlives its author.
   created_by      uuid references auth.users (id) on delete set null,
-  -- Fixed visual description of the main character (gender, face, hair, build,
-  -- outfit), reused in every chapter's image prompt for a consistent look.
-  character_brief text,
+  -- Cast registry: locked visual descriptions of every character that has
+  -- appeared ([{ "name", "brief" }, ...]), reused in each chapter's image
+  -- prompts so any character keeps the same look whenever redrawn.
+  character_sheet jsonb not null default '[]'::jsonb,
   created_at      timestamptz not null default now()
 );
 
