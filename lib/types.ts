@@ -6,6 +6,8 @@ export interface Comic {
   description: string | null;
   cover_image_url: string | null;
   created_by?: string | null;
+  /** Fixed visual description of the main character, for consistent art. */
+  character_brief?: string | null;
   created_at: string;
 }
 

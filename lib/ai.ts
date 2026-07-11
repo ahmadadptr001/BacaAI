@@ -248,7 +248,8 @@ export async function generateNextChapter(
 function buildScenesPrompt(
   comic: Pick<Comic, "title" | "description">,
   chapterTitle: string,
-  parts: string[]
+  parts: string[],
+  characterBrief: string
 ): string {
   const n = parts.length;
   const listed = parts
@@ -260,11 +261,17 @@ function buildScenesPrompt(
 Kamu membuat STORYBOARD gambar untuk SATU bab komik. Bab ini sudah dibagi
 menjadi ${n} BAGIAN berurutan sesuai alur cerita. Untuk SETIAP bagian, buat satu
 "image_query": deskripsi adegan visual PALING KUNCI dari bagian itu, dalam
-Bahasa Inggris, 4-8 kata. Sebutkan LATAR/TEMPAT + SUBJEK utama + suasana/waktu
-(mis. "neon city alley at night", "lighthouse on rocky coast at dawn"). Pakai
-kata benda konkret; JANGAN pakai kata abstrak/emosi ("mystery", "tension",
-"hope"); JANGAN sertakan nama tokoh atau nama tempat fiktif. (Gaya animasi
-ditambahkan otomatis.)
+Bahasa Inggris, 6-12 kata. Fokus pada AKSI/POSISI tokoh + LATAR/TEMPAT +
+suasana/waktu (mis. "swordsman kneeling in a burning shrine at night",
+"girl running across a rooftop under heavy rain"). Pakai kata benda konkret;
+JANGAN pakai kata abstrak/emosi ("mystery", "tension", "hope"); JANGAN sertakan
+nama tokoh atau nama tempat fiktif. (Gaya animasi ditambahkan otomatis.)
+
+TOKOH UTAMA (penampilan TETAP): ${characterBrief || "(sesuai cerita, jaga konsisten)"}.
+JANGAN mendeskripsikan ulang wajah/rambut/pakaian/jenis kelamin tokoh dalam
+query — penampilan itu ditambahkan otomatis agar SAMA di setiap gambar. Cukup
+tuliskan apa yang tokoh LAKUKAN dan DI MANA. Jika sebuah bagian tidak
+menampilkan tokoh utama, buat query LATAR/pemandangan saja.
 
 SANGAT PENTING: query ke-i HARUS benar-benar menggambarkan isi BAGIAN ke-i itu
 sendiri (bukan bagian lain), sehingga urutan gambar mengikuti persis alur cerita
@@ -283,18 +290,21 @@ dengan TEPAT ${n} item, berurutan sesuai bagian di atas.`;
 /**
  * For a chapter split into ordered `parts`, returns one English image query per
  * part — each describing the key visual of THAT part, so a sequence of images
- * tracks the chapter's flow. Always returns exactly `parts.length` queries
- * (padding a short reply rather than leaving a panel blank).
+ * tracks the chapter's flow. `characterBrief` is the main character's fixed
+ * look; scenes describe the character's action while the appearance itself is
+ * prepended by the caller (keeping it identical across panels/chapters). Always
+ * returns exactly `parts.length` queries (padding a short reply).
  */
 export async function describeChapterScenes(
   comic: Pick<Comic, "title" | "description">,
   chapterTitle: string,
   parts: string[],
+  characterBrief: string,
   signal?: AbortSignal
 ): Promise<string[]> {
   if (parts.length === 0) return [];
   const raw = await callModel(
-    buildScenesPrompt(comic, chapterTitle, parts),
+    buildScenesPrompt(comic, chapterTitle, parts, characterBrief),
     signal
   );
   const parsed = parseModelJson(raw);
@@ -311,6 +321,44 @@ export async function describeChapterScenes(
     );
   }
   return out;
+}
+
+/**
+ * Establish the main character's FIXED visual look from the opening chapter, so
+ * every illustration can render the same person (same gender, hair, face,
+ * build, outfit). Returns a concise English description with no name/setting,
+ * or "" if the model can't produce one. Generated once per comic and cached.
+ */
+export async function describeMainCharacters(
+  comic: Pick<Comic, "title" | "description">,
+  openingStory: string,
+  signal?: AbortSignal
+): Promise<string> {
+  const prompt = `${PERSONA}
+
+Dari naskah pembuka berikut, TETAPKAN penampilan visual TETAP untuk TOKOH UTAMA,
+agar bisa dipakai ulang di semua ilustrasi bab (supaya wajah & sosoknya
+konsisten). Tulis dalam Bahasa Inggris sebagai SATU frasa deskriptif ringkas
+(maks ~30 kata). WAJIB sebutkan secara konkret dan spesifik:
+- jenis kelamin dan perkiraan usia (mis. "teenage boy ~17", "young woman ~20"),
+- warna dan gaya rambut (mis. "short messy black hair", "long silver braid"),
+- warna mata dan ciri wajah,
+- bentuk/postur tubuh (mis. "lean athletic", "petite"),
+- pakaian & atribut khas (mis. "dark hooded cloak, silver longsword").
+Pakai atribut visual konkret. TANPA nama tokoh, TANPA latar, TANPA aksi. Jika
+naskah tidak menyebut detail, TENTUKAN sendiri yang masuk akal lalu kunci.
+
+KOMIK: "${comic.title}"
+PREMIS: ${comic.description ?? "(tidak ada)"}
+
+NASKAH PEMBUKA:
+${openingStory}
+
+Balas HANYA dengan JSON valid, tanpa markdown, persis:
+{ "character": "english visual description" }`;
+  const raw = await callModel(prompt, signal);
+  const parsed = parseModelJson(raw);
+  return toText(parsed.character);
 }
 
 /** An AI-drafted comic to pre-fill the admin's "add comic" form. */

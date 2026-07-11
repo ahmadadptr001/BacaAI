@@ -5,10 +5,12 @@ import {
   generateChoices,
   generateNextChapter,
   describeChapterScenes,
+  describeMainCharacters,
   type StorySoFar,
 } from "./ai";
 import { searchImage } from "./images";
 import { splitIntoParts } from "./chapter";
+import { createAdminClient } from "./supabase/admin";
 import { nextChapterNumber } from "./progress";
 
 /**
@@ -162,24 +164,75 @@ export async function generateChoicesForChapter(
   return (inserted ?? []) as Choice[];
 }
 
+/** Prepend the main character's fixed look to a scene so art stays consistent. */
+function withCharacter(brief: string, scene: string): string {
+  const s = scene.trim();
+  return brief ? `${brief}. ${s}` : s;
+}
+
+/**
+ * The main character's fixed visual description for a comic. Cached on the
+ * comic row so every chapter's art renders the same person. Generated once from
+ * the opening chapter; persisted with the service role (comics have no UPDATE
+ * RLS policy). Returns "" if it can't be produced (art still works, just less
+ * strictly consistent).
+ */
+async function ensureCharacterBrief(
+  comic: Comic,
+  lineage: Chapter[]
+): Promise<string> {
+  if (comic.character_brief && comic.character_brief.trim()) {
+    return comic.character_brief.trim();
+  }
+  const opening = lineage[0]?.content_text ?? "";
+  if (!opening) return "";
+
+  let brief = "";
+  try {
+    brief = await describeMainCharacters(
+      { title: comic.title, description: comic.description },
+      opening
+    );
+  } catch {
+    brief = "";
+  }
+  if (brief) {
+    try {
+      await createAdminClient()
+        .from("comics")
+        .update({ character_brief: brief })
+        .eq("id", comic.id);
+    } catch {
+      // Best-effort cache; not fatal if it fails to persist.
+    }
+  }
+  return brief;
+}
+
 /**
  * Build the panel images for a freshly generated chapter. For a single image
  * we reuse the chapter's own scene phrase. For several, we split the chapter
  * into that many ordered parts and ask the AI for a scene per part, so the
- * sequence of images follows the story's flow. Best-effort: any failure yields
- * fewer (or no) images rather than blocking the chapter.
+ * sequence of images follows the story's flow. Every prompt is prefixed with
+ * the main character's fixed look (`characterBrief`) so the character stays
+ * consistent panel to panel and chapter to chapter. Best-effort: any failure
+ * yields fewer (or no) images rather than blocking the chapter.
  */
 async function buildChapterImages(
   comic: Pick<Comic, "title" | "description">,
   generated: { title: string; content_text: string; image_query: string | null },
   count: number,
+  characterBrief: string,
   signal?: AbortSignal
 ): Promise<string[]> {
   const n = Math.max(1, Math.floor(count) || 1);
   try {
     if (n <= 1) {
       const url = generated.image_query
-        ? await searchImage(generated.image_query, signal)
+        ? await searchImage(
+            withCharacter(characterBrief, generated.image_query),
+            signal
+          )
         : null;
       return url ? [url] : [];
     }
@@ -189,16 +242,24 @@ async function buildChapterImages(
       { title: comic.title, description: comic.description },
       generated.title,
       parts,
+      characterBrief,
       signal
     );
     const urls = (
-      await Promise.all(queries.map((q) => searchImage(q, signal)))
+      await Promise.all(
+        queries.map((q) =>
+          searchImage(withCharacter(characterBrief, q), signal)
+        )
+      )
     ).filter((u): u is string => Boolean(u));
     if (urls.length > 0) return urls;
 
     // Nothing came back — fall back to a single scene so the chapter isn't bare.
     const one = generated.image_query
-      ? await searchImage(generated.image_query, signal)
+      ? await searchImage(
+          withCharacter(characterBrief, generated.image_query),
+          signal
+        )
       : null;
     return one ? [one] : [];
   } catch {
@@ -241,11 +302,14 @@ export async function advanceFromChoice(
     signal
   );
 
-  // Draw the panels (text model can't draw), split to follow the story flow.
+  // Lock the main character's look (cached on the comic) so every chapter's
+  // art shows the same person, then draw the panels along the story flow.
+  const characterBrief = await ensureCharacterBrief(comic, lineage);
   const imageUrls = await buildChapterImages(
     { title: comic.title, description: comic.description },
     generated,
     imageCount,
+    characterBrief,
     signal
   );
 
