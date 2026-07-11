@@ -80,7 +80,16 @@ tokoh sampingan yang sama berulang-ulang, mengulang nama yang itu-itu saja, atau
 mendaur ulang adegan/konflik yang mirip. Setiap bab harus terasa segar dan
 MEMAJUKAN cerita, bukan berputar di tempat.`;
 
-function buildPrompt({ comic, history, choice }: GenerateInput): string {
+function buildPrompt({ comic, history, choice }: GenerateInput, panels: number): string {
+  // The chapter will be split into `panels` illustrated parts, so scale the
+  // length with it (~2 paragraphs per part) — otherwise more images just means
+  // less text per image. Extra length must add DEPTH, not a bigger plot jump.
+  const minPara = panels <= 1 ? 3 : panels * 2;
+  const maxPara = panels <= 1 ? 5 : panels * 2 + 2;
+  const lengthNote =
+    panels <= 1
+      ? `Buat ${minPara}-${maxPara} paragraf yang hidup dan MEMAJUKAN cerita.`
+      : `Bab ini akan dibagi menjadi ${panels} bagian bergambar, jadi tulis LEBIH PANJANG: ${minPara}-${maxPara} paragraf, dengan bobot MERATA sepanjang bab (kira-kira 2 paragraf untuk tiap bagian) supaya tiap gambar punya cukup teks. Tambahkan KEDALAMAN, dialog, dan detail adegan, BUKAN lompatan waktu/tempat.`;
   return `${PERSONA}
 
 KOMIK: "${comic.title}"
@@ -93,7 +102,7 @@ Sebagai penulis, arah alur yang dipilih untuk kelanjutan kisah:
 "${choice.description}"
 
 Tulis BAB BERIKUTNYA yang mengembangkan arah tersebut dan konsisten dengan
-seluruh cerita di atas. Buat 3-5 paragraf yang hidup dan MEMAJUKAN cerita.
+seluruh cerita di atas. ${lengthNote}
 
 KESINAMBUNGAN (WAJIB, jangan dilanggar):
 - Bab ini harus MENYAMBUNG LANGSUNG dari akhir bab sebelumnya. Mulai dari
@@ -227,14 +236,18 @@ export async function generateChoices(
 }
 
 /**
- * Calls the model and returns a normalized next chapter. Throws on network
- * failure or unparseable output so callers can show a friendly error.
+ * Calls the model and returns a normalized next chapter. `imageCount` is how
+ * many illustrated parts the chapter will be split into; the chapter length
+ * scales with it so each panel gets enough text. Throws on network failure or
+ * unparseable output so callers can show a friendly error.
  */
 export async function generateNextChapter(
   input: GenerateInput,
+  imageCount = 1,
   signal?: AbortSignal
 ): Promise<GeneratedChapter> {
-  const raw = await callModel(buildPrompt(input), signal);
+  const panels = Math.max(1, Math.floor(imageCount) || 1);
+  const raw = await callModel(buildPrompt(input, panels), signal);
   const parsed = parseModelJson(raw);
 
   return {

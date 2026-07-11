@@ -282,6 +282,7 @@ export async function advanceFromChoice(
       history: toStorySoFar(contextWindow(lineage)),
       choice: { description: choice.description },
     },
+    imageCount,
     signal
   );
 
