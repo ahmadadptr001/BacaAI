@@ -11,14 +11,10 @@ import {
 import Spinner from "@/components/Spinner";
 import { useToast } from "@/components/Toast";
 import { SparkleIcon, CheckIcon, ArrowRightIcon } from "@/components/icons";
-import ChapterProse from "@/app/comics/[comicId]/ChapterProse";
 
 const initial: StoryActionState = {};
 
 type PreviewStatus = "idle" | "loading" | "ok" | "error";
-
-// Uneven widths make the loading skeleton read like real prose being written.
-const SKELETON = ["92%", "98%", "85%", "70%", "95%", "60%"];
 
 export default function AddComicForm({
   submitLabel = "Tambah cerita",
@@ -96,24 +92,24 @@ export default function AddComicForm({
       </label>
 
       {/* AI recommendation */}
-      <div className="flex flex-col gap-2 rounded-xl border border-dashed border-brand-400/50 bg-brand-50/50 p-3 dark:bg-brand-600/10">
+      <div className="flex flex-col gap-2.5 rounded-xl border border-dashed border-brand-400/50 bg-brand-50/50 p-3 dark:bg-brand-600/10">
         <button
           type="button"
           onClick={handleSuggest}
           disabled={suggesting}
-          className="flex items-center justify-center gap-2 self-start rounded-full border border-brand-400 px-4 py-2 text-sm font-semibold text-brand-600 transition-colors hover:bg-brand-500 hover:text-white disabled:opacity-60 dark:text-brand-400"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 active:scale-[0.99] disabled:opacity-60 sm:w-auto sm:self-start"
         >
           {suggesting ? (
             <Spinner label="Meracik cerita" />
           ) : (
             <>
               <SparkleIcon className="h-4 w-4" />
-              Rekomendasikan cerita (manhwa/anime) dengan AI
+              <span>Rekomendasikan cerita dengan AI</span>
             </>
           )}
         </button>
         <p className="text-xs text-muted">
-          Isi judul (dan ide singkat di kolom sinopsis) lalu klik, AI menyusun
+          Isi judul (dan ide singkat di kolom sinopsis) lalu klik. AI menyusun
           sinopsis, Bab 1, dan gambar sampulnya untuk kamu tinjau.
         </p>
       </div>
@@ -123,7 +119,7 @@ export default function AddComicForm({
         <textarea
           ref={descRef}
           name="description"
-          rows={2}
+          rows={4}
           className={inputClass}
           placeholder="Ringkasan singkat untuk memandu AI dan pembaca."
         />
@@ -135,43 +131,12 @@ export default function AddComicForm({
           name="story"
           value={story}
           onChange={(e) => setStory(e.target.value)}
-          rows={5}
+          rows={10}
           required
           className={inputClass}
           placeholder="Tulis pembuka cerita, atau biarkan AI menuliskannya. Pembaca menentukan lanjutannya."
         />
       </label>
-
-      {/* Bab 1 — generated like a real chapter, with a unique styled preview. */}
-      {suggesting ? (
-        <div className="rounded-2xl border border-brand-400/40 bg-brand-50/40 p-5 dark:bg-brand-600/10">
-          <p className="flex items-center gap-2 text-sm font-semibold text-brand-600 dark:text-brand-400">
-            <SparkleIcon className="h-4 w-4 animate-pulse" />
-            AI sedang menulis Bab 1…
-          </p>
-          <div className="mt-4 space-y-2.5">
-            {SKELETON.map((w, i) => (
-              <div
-                key={i}
-                className="h-3 animate-pulse rounded-full bg-brand-400/25"
-                style={{ width: w }}
-              />
-            ))}
-          </div>
-        </div>
-      ) : (
-        story.trim() && (
-          <div className="rounded-2xl border border-border bg-background p-5">
-            <div className="mb-1 flex items-center gap-2">
-              <SparkleIcon className="h-4 w-4 text-brand-500" />
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-500">
-                Pratinjau Bab 1
-              </p>
-            </div>
-            <ChapterProse text={story} />
-          </div>
-        )
-      )}
 
       <label className="flex flex-col gap-1 text-sm font-medium">
         URL gambar
