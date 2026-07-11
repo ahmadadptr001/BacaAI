@@ -7,6 +7,7 @@ import {
   PlusIcon,
   BookIcon,
   UsersIcon,
+  ActivityIcon,
 } from "@/components/icons";
 
 const LINKS = [
@@ -14,6 +15,7 @@ const LINKS = [
   { href: "/admin/tambah", label: "Tambah cerita", Icon: PlusIcon },
   { href: "/admin/komik", label: "Cerita", Icon: BookIcon },
   { href: "/admin/pengguna", label: "Pengguna", Icon: UsersIcon },
+  { href: "/admin/sistem", label: "Performa", Icon: ActivityIcon },
 ] as const;
 
 /** Route-based sidebar navigation for the admin dashboard. */

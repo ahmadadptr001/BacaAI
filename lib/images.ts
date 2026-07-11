@@ -1,15 +1,21 @@
 import "server-only";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Finds an ANIMATION/illustration-style image for a chapter (the story AI is
  * text-only). Returns null on any failure so chapter generation never breaks
  * just because an image couldn't be found.
  *
- * Default source — Pollinations: a keyless AI image generator. Because it
+ * Preferred source — Hugging Face (FLUX.1-schnell via the nscale router): a
+ * high-quality text-to-image model. It runs server-side and returns raw image
+ * bytes, which we upload to a public Supabase Storage bucket and serve by URL.
+ * Used automatically when HF_TOKEN is set; on ANY failure we fall back to
+ * Pollinations so a chapter is never left without art.
+ *
+ * Fallback source — Pollinations: a keyless AI image generator. Because it
  * *generates* from the scene text, the picture is always on-topic and we force
  * an anime/illustration look. The URL is deterministic (seeded by the scene)
- * and rendered lazily by the browser, so generation adds no server latency.
- * This is what makes results look like comic art instead of stock photos.
+ * and rendered lazily by the browser, so it adds no server latency.
  *
  * Set IMAGE_SOURCE=search to instead use real web images (Openverse
  * illustrations → Wikimedia), scored by how many query words match.
@@ -21,6 +27,19 @@ const IMAGE_SOURCE = (process.env.IMAGE_SOURCE ?? "generate").toLowerCase();
 const GEN_WIDTH = 768;
 const GEN_HEIGHT = 512;
 
+// --- Hugging Face image generation -----------------------------------------
+const HF_TOKEN =
+  process.env.AI_IMAGE_HUGGING_FACE_API_KEY ?? process.env.HF_TOKEN;
+const HF_IMAGE_URL =
+  process.env.HF_IMAGE_URL ??
+  "https://router.huggingface.co/nscale/v1/images/generations";
+const HF_IMAGE_MODEL =
+  process.env.HF_IMAGE_MODEL ?? "black-forest-labs/FLUX.1-schnell";
+// Public Storage bucket where generated images are kept.
+const IMAGE_BUCKET = process.env.IMAGE_BUCKET ?? "generated-images";
+// Image generation can take several seconds — allow more than a JSON call.
+const GEN_TIMEOUT_MS = 30000;
+
 /** Stable positive integer seed from a string, so the same scene → same art. */
 function seedFrom(text: string): number {
   let h = 2166136261;
@@ -31,9 +50,13 @@ function seedFrom(text: string): number {
   return h >>> 0;
 }
 
+/** Shared art-direction prefix so every source produces a consistent look. */
+function animePrompt(scene: string): string {
+  return `anime illustration, manhwa style, cinematic lighting, highly detailed, vibrant, ${scene}`;
+}
+
 /** Build a deterministic Pollinations URL that renders the scene as anime art. */
 function pollinationsUrl(scene: string): string {
-  const prompt = `anime illustration, cinematic lighting, detailed, ${scene}`;
   const params = new URLSearchParams({
     width: String(GEN_WIDTH),
     height: String(GEN_HEIGHT),
@@ -42,8 +65,84 @@ function pollinationsUrl(scene: string): string {
     seed: String(seedFrom(scene)),
   });
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(
-    prompt
+    animePrompt(scene)
   )}?${params.toString()}`;
+}
+
+// Ensure the public bucket exists only once per server process.
+let bucketReady = false;
+async function ensureBucket(
+  supabase: ReturnType<typeof createAdminClient>
+): Promise<void> {
+  if (bucketReady) return;
+  // createBucket returns an error (not a throw) when the bucket already
+  // exists; either way it's usable afterwards.
+  await supabase.storage.createBucket(IMAGE_BUCKET, { public: true });
+  bucketReady = true;
+}
+
+/**
+ * Generate the scene with Hugging Face, then store the bytes in Supabase
+ * Storage and return the public URL. Returns null on any failure (missing
+ * token, HTTP error, upload error) so the caller can fall back.
+ */
+async function generateWithHuggingFace(
+  scene: string,
+  signal?: AbortSignal
+): Promise<string | null> {
+  if (!HF_TOKEN) return null;
+
+  const timeout = AbortSignal.timeout(GEN_TIMEOUT_MS);
+  const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
+
+  let payload: {
+    data?: Array<{ b64_json?: string; url?: string }>;
+  };
+  try {
+    const res = await fetch(HF_IMAGE_URL, {
+      method: "POST",
+      signal: combined,
+      headers: {
+        Authorization: `Bearer ${HF_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: HF_IMAGE_MODEL,
+        prompt: animePrompt(scene),
+        response_format: "b64_json",
+      }),
+    });
+    if (!res.ok) return null;
+    payload = (await res.json()) as typeof payload;
+  } catch {
+    return null;
+  }
+
+  const first = payload.data?.[0];
+  // Some providers return a hosted URL directly — use it as-is if so.
+  if (first?.url) return first.url;
+  if (!first?.b64_json) return null;
+
+  try {
+    const bytes = Buffer.from(first.b64_json, "base64");
+    if (bytes.length === 0) return null;
+
+    const supabase = createAdminClient();
+    await ensureBucket(supabase);
+
+    // Deterministic path: the same scene overwrites the same object (cheap,
+    // dedup-friendly) instead of piling up near-identical files.
+    const path = `${seedFrom(scene)}.png`;
+    const { error } = await supabase.storage
+      .from(IMAGE_BUCKET)
+      .upload(path, bytes, { contentType: "image/png", upsert: true });
+    if (error) return null;
+
+    const { data } = supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path);
+    return data.publicUrl || null;
+  } catch {
+    return null;
+  }
 }
 
 
@@ -200,10 +299,12 @@ export async function searchImage(
   const q = query.trim();
   if (!q) return null;
 
-  // Default: on-topic anime-style art, generated from the scene. Deterministic
-  // URL rendered lazily by the browser — no server-side fetch, no latency.
+  // Default: on-topic anime-style art generated from the scene. Prefer the
+  // higher-quality Hugging Face model when a token is configured, falling back
+  // to Pollinations (deterministic, zero-latency) on any failure.
   if (IMAGE_SOURCE !== "search") {
-    return pollinationsUrl(q);
+    const hf = await generateWithHuggingFace(q, signal);
+    return hf ?? pollinationsUrl(q);
   }
 
   // IMAGE_SOURCE=search: real web images instead.

@@ -62,6 +62,64 @@ function Base({ children, ...props }: IconProps & { children: React.ReactNode })
   );
 }
 
+export function ActivityIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+    </Base>
+  );
+}
+
+export function ServerIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <rect x="2" y="3" width="20" height="8" rx="2" />
+      <rect x="2" y="13" width="20" height="8" rx="2" />
+      <path d="M6 7h.01" />
+      <path d="M6 17h.01" />
+    </Base>
+  );
+}
+
+export function AlertTriangleIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </Base>
+  );
+}
+
+export function CpuIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <rect x="9" y="9" width="6" height="6" />
+      <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3" />
+    </Base>
+  );
+}
+
+export function ClockIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </Base>
+  );
+}
+
+export function DatabaseIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <ellipse cx="12" cy="5" rx="8" ry="3" />
+      <path d="M4 5v6a8 3 0 0 0 16 0V5" />
+      <path d="M4 11v6a8 3 0 0 0 16 0v-6" />
+    </Base>
+  );
+}
+
 export function TrashIcon(props: IconProps) {
   return (
     <Base {...props}>
