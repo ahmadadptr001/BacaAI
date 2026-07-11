@@ -81,6 +81,16 @@ export function ServerIcon(props: IconProps) {
   );
 }
 
+export function ImageIcon(props: IconProps) {
+  return (
+    <Base {...props}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-4.35-4.35a2 2 0 0 0-2.9.06L3 21" />
+    </Base>
+  );
+}
+
 export function AlertTriangleIcon(props: IconProps) {
   return (
     <Base {...props}>

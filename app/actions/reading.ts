@@ -2,9 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthContext } from "@/lib/authz";
 import { advanceFromChoice, generateChoicesForChapter } from "@/lib/reading";
 import { appendChoice, buildChoiceRecord } from "@/lib/progress";
-import type { Chapter, Choice, ChoiceRecord, UserProgress } from "@/lib/types";
+import { describeChapterScenes } from "@/lib/ai";
+import { searchImage } from "@/lib/images";
+import { splitIntoParts, maxImagesFor } from "@/lib/chapter";
+import type { Chapter, Choice, Comic, ChoiceRecord, UserProgress } from "@/lib/types";
 
 export interface SelectChoiceResult {
   ok: boolean;
@@ -198,6 +203,75 @@ export async function ensureChoices(chapterId: string): Promise<SelectChoiceResu
     return { ok: true };
   } catch (err) {
     console.error("ensureChoices failed:", err);
+    return {
+      ok: false,
+      error: "Sang pencerita sedang beristirahat. Silakan coba lagi.",
+    };
+  }
+}
+
+/**
+ * (Re)generate the panel images for a chapter. The reader picks how many
+ * images they want (1..max, where max is 4 for readers and 6 for admins). The
+ * chapter is split into that many ordered parts, and the AI writes an image
+ * prompt matching EACH part, so the sequence of images tracks the story's flow.
+ * Images are shared on the chapter (like generated chapters/choices), so we
+ * write them with the service-role client (chapters have no UPDATE RLS policy).
+ */
+export async function setChapterImages(
+  comicId: string,
+  chapterId: string,
+  count: number
+): Promise<SelectChoiceResult> {
+  const { user, isAdmin } = await getAuthContext();
+  if (!user) return { ok: false, error: "Kamu perlu masuk terlebih dahulu." };
+
+  const max = maxImagesFor(isAdmin);
+  const n = Math.max(1, Math.min(max, Math.floor(count) || 1));
+
+  const admin = createAdminClient();
+  const { data: chapter } = await admin
+    .from("chapters")
+    .select("id, comic_id, title, content_text")
+    .eq("id", chapterId)
+    .maybeSingle<Pick<Chapter, "id" | "comic_id" | "title" | "content_text">>();
+  if (!chapter || chapter.comic_id !== comicId) {
+    return { ok: false, error: "Bab tidak ditemukan." };
+  }
+
+  const { data: comic } = await admin
+    .from("comics")
+    .select("title, description")
+    .eq("id", comicId)
+    .maybeSingle<Pick<Comic, "title" | "description">>();
+
+  try {
+    const parts = splitIntoParts(chapter.content_text, n);
+    const queries = await describeChapterScenes(
+      { title: comic?.title ?? chapter.title, description: comic?.description ?? null },
+      chapter.title,
+      parts
+    );
+
+    // Generate every panel in parallel; searchImage falls back internally so a
+    // panel is never left empty. Order is preserved → image i ↔ part i.
+    const urls = (await Promise.all(queries.map((q) => searchImage(q)))).filter(
+      (u): u is string => Boolean(u)
+    );
+    if (urls.length === 0) {
+      return { ok: false, error: "Gagal membuat gambar. Coba lagi sebentar." };
+    }
+
+    const { error } = await admin
+      .from("chapters")
+      .update({ image_urls: urls })
+      .eq("id", chapterId);
+    if (error) return { ok: false, error: "Gagal menyimpan gambar." };
+
+    revalidatePath(`/comics/${comicId}`);
+    return { ok: true };
+  } catch (err) {
+    console.error("setChapterImages failed:", err);
     return {
       ok: false,
       error: "Sang pencerita sedang beristirahat. Silakan coba lagi.",

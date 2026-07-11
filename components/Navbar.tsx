@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { getAuthContext } from "@/lib/authz";
+import { createClient } from "@/lib/supabase/server";
 import ThemeToggle from "./ThemeToggle";
 import UserMenu from "./UserMenu";
+import NotificationBell, { type NotifItem } from "./NotificationBell";
 import ChapterJump from "@/app/comics/[comicId]/ChapterJump";
 import { BrandMark } from "./icons";
 
@@ -29,6 +31,28 @@ export default async function Navbar({
   progressLabel?: string;
 }) {
   const { user, isAdmin } = await getAuthContext();
+
+  // New stories published by users in the last 24h (feed resets itself daily).
+  // Comics are publicly readable, so no service-role/profile join is needed —
+  // and we deliberately don't expose the author's identity here.
+  const since = new Date(
+    new Date().getTime() - 24 * 60 * 60 * 1000
+  ).toISOString();
+  const supabase = await createClient();
+  const { data: recent } = await supabase
+    .from("comics")
+    .select("id, title, created_at")
+    .not("created_by", "is", null)
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(12);
+  const notifications: NotifItem[] = (recent ?? []).map(
+    (c: { id: string; title: string; created_at: string }) => ({
+      id: c.id,
+      title: c.title,
+      createdAt: c.created_at,
+    })
+  );
 
   const showJump =
     comicId && currentChapterId && chapters && chapters.length > 1;
@@ -71,6 +95,7 @@ export default async function Navbar({
         )}
 
         <div className="ml-auto flex items-center gap-2">
+          <NotificationBell items={notifications} />
           <ThemeToggle />
           {user ? (
             <UserMenu email={user.email ?? ""} isAdmin={isAdmin} />

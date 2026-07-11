@@ -4,10 +4,12 @@ import Navbar from "@/components/Navbar";
 import ChoiceButtons from "./ChoiceButtons";
 import ChoiceLoader from "./ChoiceLoader";
 import ChapterJump from "./ChapterJump";
-import ChapterProse from "./ChapterProse";
+import ChapterBody from "./ChapterBody";
+import ChapterImageControl from "./ChapterImageControl";
 import RestartButton from "./RestartButton";
 import { createClient } from "@/lib/supabase/server";
 import { getChapterLineage } from "@/lib/reading";
+import { maxImagesFor } from "@/lib/chapter";
 import { ArrowRightIcon } from "@/components/icons";
 import type { Chapter, Choice, Comic, UserProgress } from "@/lib/types";
 
@@ -25,6 +27,17 @@ export default async function ReaderPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  let isAdmin = false;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle<{ role: string }>();
+    isAdmin = profile?.role === "admin";
+  }
+  const maxImages = maxImagesFor(isAdmin);
 
   const { data: comic } = await supabase
     .from("comics")
@@ -122,29 +135,22 @@ export default async function ReaderPage({
       />
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6">
         <article className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
-          {chapter.image_urls?.length > 0 && (
-            <div className="flex flex-col">
-              {chapter.image_urls.map((url, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={`${url}-${i}`}
-                  src={url}
-                  alt={`${chapter.title} — panel ${i + 1}`}
-                  className="h-72 w-full object-cover sm:h-96"
-                />
-              ))}
-            </div>
-          )}
-
-          <div className="p-6 sm:p-8">
-            <p className="text-xs font-semibold uppercase tracking-wide text-brand-500">
-              Bab {chapter.chapter_number} dari {path.length}
-            </p>
-            <h1 className="mt-1 text-2xl font-extrabold">
-              {labelFor(chapter)}
-            </h1>
-
-            <ChapterProse text={chapter.content_text} />
+          <ChapterBody
+            chapterNumber={chapter.chapter_number}
+            totalChapters={path.length}
+            heading={labelFor(chapter)}
+            text={chapter.content_text}
+            images={chapter.image_urls ?? []}
+          >
+            {user && (
+              <ChapterImageControl
+                comicId={comicId}
+                chapterId={chapter.id}
+                current={chapter.image_urls?.length ?? 0}
+                max={maxImages}
+                isAdmin={isAdmin}
+              />
+            )}
 
             {/* Decision point */}
             <div className="mt-8">
@@ -193,7 +199,7 @@ export default async function ReaderPage({
                 </div>
               )}
             </div>
-          </div>
+          </ChapterBody>
         </article>
 
         {/* Chapter navigation */}

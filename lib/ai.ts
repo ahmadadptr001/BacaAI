@@ -245,6 +245,74 @@ export async function generateNextChapter(
   };
 }
 
+function buildScenesPrompt(
+  comic: Pick<Comic, "title" | "description">,
+  chapterTitle: string,
+  parts: string[]
+): string {
+  const n = parts.length;
+  const listed = parts
+    .map((p, i) => `[BAGIAN ${i + 1}]\n${p}`)
+    .join("\n\n");
+  const shape = parts.map(() => `"english scene phrase"`).join(", ");
+  return `${PERSONA}
+
+Kamu membuat STORYBOARD gambar untuk SATU bab komik. Bab ini sudah dibagi
+menjadi ${n} BAGIAN berurutan sesuai alur cerita. Untuk SETIAP bagian, buat satu
+"image_query": deskripsi adegan visual PALING KUNCI dari bagian itu, dalam
+Bahasa Inggris, 4-8 kata. Sebutkan LATAR/TEMPAT + SUBJEK utama + suasana/waktu
+(mis. "neon city alley at night", "lighthouse on rocky coast at dawn"). Pakai
+kata benda konkret; JANGAN pakai kata abstrak/emosi ("mystery", "tension",
+"hope"); JANGAN sertakan nama tokoh atau nama tempat fiktif. (Gaya animasi
+ditambahkan otomatis.)
+
+SANGAT PENTING: query ke-i HARUS benar-benar menggambarkan isi BAGIAN ke-i itu
+sendiri (bukan bagian lain), sehingga urutan gambar mengikuti persis alur cerita
+bab ini dari awal sampai akhir.
+
+KOMIK: "${comic.title}"
+BAB: "${chapterTitle}"
+
+${listed}
+
+Balas HANYA dengan JSON valid, tanpa markdown, persis dalam bentuk ini:
+{ "queries": [${shape}] }
+dengan TEPAT ${n} item, berurutan sesuai bagian di atas.`;
+}
+
+/**
+ * For a chapter split into ordered `parts`, returns one English image query per
+ * part — each describing the key visual of THAT part, so a sequence of images
+ * tracks the chapter's flow. Always returns exactly `parts.length` queries
+ * (padding a short reply rather than leaving a panel blank).
+ */
+export async function describeChapterScenes(
+  comic: Pick<Comic, "title" | "description">,
+  chapterTitle: string,
+  parts: string[],
+  signal?: AbortSignal
+): Promise<string[]> {
+  if (parts.length === 0) return [];
+  const raw = await callModel(
+    buildScenesPrompt(comic, chapterTitle, parts),
+    signal
+  );
+  const parsed = parseModelJson(raw);
+  const queries = toStringArray(parsed.queries, []);
+
+  // Align to exactly one query per part. If the model returned too few, reuse
+  // the last good one (a repeat beats a missing panel).
+  const out: string[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    out.push(
+      queries[i] ??
+        queries[queries.length - 1] ??
+        "dramatic cinematic anime scene"
+    );
+  }
+  return out;
+}
+
 /** An AI-drafted comic to pre-fill the admin's "add comic" form. */
 export interface SuggestedComic {
   title: string;
