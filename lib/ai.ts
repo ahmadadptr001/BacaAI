@@ -88,8 +88,8 @@ function buildPrompt({ comic, history, choice }: GenerateInput, panels: number):
   const maxPara = panels <= 1 ? 5 : panels * 2 + 2;
   const lengthNote =
     panels <= 1
-      ? `Buat ${minPara}-${maxPara} paragraf yang hidup dan MEMAJUKAN cerita.`
-      : `Bab ini akan dibagi menjadi ${panels} bagian bergambar, jadi tulis LEBIH PANJANG: ${minPara}-${maxPara} paragraf, dengan bobot MERATA sepanjang bab (kira-kira 2 paragraf untuk tiap bagian) supaya tiap gambar punya cukup teks. Tambahkan KEDALAMAN, dialog, dan detail adegan, BUKAN lompatan waktu/tempat.`;
+      ? `Buat ${minPara}-${maxPara} paragraf NARASI yang berbobot (tiap paragraf narasi 3-5 kalimat utuh) dan MEMAJUKAN cerita.`
+      : `Bab ini akan dibagi menjadi ${panels} bagian bergambar, jadi tulis LEBIH PANJANG: ${minPara}-${maxPara} paragraf NARASI, dengan bobot MERATA sepanjang bab (kira-kira 2 paragraf untuk tiap bagian) supaya tiap gambar punya cukup teks. Tiap paragraf narasi WAJIB berisi 3-5 kalimat utuh — makin banyak paragraf, makin banyak KALIMAT. Tambahkan KEDALAMAN, dialog, dan detail adegan, BUKAN lompatan waktu/tempat.`;
   return `${PERSONA}
 
 KOMIK: "${comic.title}"
@@ -117,9 +117,14 @@ KESINAMBUNGAN (WAJIB, jangan dilanggar):
   kejadian penting.
 
 Gaya penulisan (WAJIB, agar tidak membosankan):
+- Setiap paragraf NARASI WAJIB berisi minimal 3-5 kalimat yang utuh dan
+  berbobot. DILARANG KERAS ada paragraf narasi yang cuma beberapa kata atau satu
+  klausa pendek. Perbanyak panjang dengan menambah KALIMAT di dalam paragraf,
+  BUKAN dengan memecah-mecah teks jadi banyak paragraf pendek.
 - WAJIB ada PERCAKAPAN antar tokoh. Tulis SETIAP baris dialog sebagai paragraf
   TERSENDIRI yang diawali tanda kutip ganda, mis:
   "Kau tak seharusnya ada di sini," bisik Rin.
+  (Baris dialog boleh pendek — pengecualian dari aturan panjang paragraf di atas.)
 - Variasikan ritme: campur kalimat pendek yang menegangkan dengan kalimat
   deskriptif yang mengalir.
 - Bubuhkan sedikit emoji yang relevan sesekali (mis. ⚔️ 🔥 ✨ 🌙) untuk memberi
