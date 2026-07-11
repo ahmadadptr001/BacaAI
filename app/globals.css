@@ -1,26 +1,87 @@
 @import "tailwindcss";
 
+/* Enable a manual (class-based) dark mode toggle in addition to the OS
+   preference. `dark:` utilities apply when <html> has the `dark` class. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #faf9fc;
+  --foreground: #191622;
+  --card: #ffffff;
+  --muted: #6a6577;
+  --border: #e8e6ef;
+}
+
+.dark {
+  --background: #0f0e15;
+  --foreground: #f2f0f7;
+  --card: #18161f;
+  --muted: #9a94a8;
+  --border: #272430;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Refined, professional violet palette (flat — no gradients in the UI) */
+  --color-brand-50: #f4f1fe;
+  --color-brand-100: #e9e3fd;
+  --color-brand-400: #a98bf5;
+  --color-brand-500: #7c3aed;
+  --color-brand-600: #6d28d9;
+  --color-brand-700: #5b21b6;
+  --color-accent-400: #fb7185;
+  --color-accent-500: #f43f5e;
+
+  --font-sans: var(--font-roboto);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  line-height: 1.65;
+}
+
+/* Prevent a flash of the wrong theme before the toggle script runs. */
+html {
+  color-scheme: light dark;
+}
+
+/* Hero montage: 4 scenes crossfade over a static base image (so a picture is
+   always visible — no color flash). Cycle 24s, each offset 6s, visible ~25%. */
+@keyframes heroKen {
+  0% {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+  4% {
+    opacity: 1;
+  }
+  21% {
+    opacity: 1;
+  }
+  25% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+}
+.hero-slide {
+  animation: heroKen 24s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-slide {
+    animation: none;
+  }
+  .hero-slide:first-child {
+    opacity: 1;
+  }
 }
