@@ -144,5 +144,32 @@ export async function createComic(
   revalidatePath("/jelajah");
   revalidatePath("/admin");
   revalidatePath("/admin/komik");
+  revalidatePath("/cerita-saya");
   return { ok: true, message, comicId: comic.id };
+}
+
+/** Delete a story — only the reader who created it may do so. */
+export async function deleteOwnStory(
+  comicId: string
+): Promise<StoryActionState> {
+  const { user } = await getAuthContext();
+  if (!user) return { error: "Kamu perlu masuk terlebih dahulu." };
+
+  const admin = createAdminClient();
+  const { data: comic } = await admin
+    .from("comics")
+    .select("id, created_by")
+    .eq("id", comicId)
+    .maybeSingle<{ id: string; created_by: string | null }>();
+  if (!comic || comic.created_by !== user.id) {
+    return { error: "Cerita tidak ditemukan atau bukan milikmu." };
+  }
+
+  const { error } = await admin.from("comics").delete().eq("id", comicId);
+  if (error) return { error: "Gagal menghapus cerita." };
+
+  revalidatePath("/cerita-saya");
+  revalidatePath("/");
+  revalidatePath("/jelajah");
+  return { ok: true };
 }

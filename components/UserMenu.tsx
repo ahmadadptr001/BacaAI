@@ -7,6 +7,7 @@ import {
   HistoryIcon,
   LogoutIcon,
   PenIcon,
+  BookIcon,
 } from "@/components/icons";
 
 /**
@@ -78,6 +79,15 @@ export default function UserMenu({
           >
             <PenIcon width={17} height={17} className="text-muted" />
             Buat cerita
+          </Link>
+          <Link
+            role="menuitem"
+            href="/cerita-saya"
+            onClick={() => setOpen(false)}
+            className={itemClass}
+          >
+            <BookIcon width={17} height={17} className="text-muted" />
+            Cerita saya
           </Link>
           <Link
             role="menuitem"
