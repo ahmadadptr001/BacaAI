@@ -20,7 +20,7 @@ export default function Footer() {
               </span>
             </Link>
             <p className="mt-3 text-sm text-muted">
-              Komik interaktif di mana kamu jadi penulisnya — setiap pilihan
+              Cerita interaktif di mana kamu jadi penulisnya. Setiap pilihan
               menentukan arah cerita, dan tiap bab ditulis khusus untukmu.
             </p>
           </div>
@@ -31,7 +31,7 @@ export default function Footer() {
                 Jelajah
               </span>
               <Link href="/" className="text-foreground/80 hover:text-brand-500">
-                Katalog komik
+                Katalog cerita
               </Link>
               <Link
                 href="/history"

@@ -11,8 +11,8 @@ import {
 
 const LINKS = [
   { href: "/admin", label: "Ringkasan", Icon: DashboardIcon },
-  { href: "/admin/tambah", label: "Tambah komik", Icon: PlusIcon },
-  { href: "/admin/komik", label: "Komik", Icon: BookIcon },
+  { href: "/admin/tambah", label: "Tambah cerita", Icon: PlusIcon },
+  { href: "/admin/komik", label: "Cerita", Icon: BookIcon },
   { href: "/admin/pengguna", label: "Pengguna", Icon: UsersIcon },
 ] as const;
 

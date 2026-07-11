@@ -72,13 +72,13 @@ export default async function HomePage({
   const steps = [
     {
       icon: BookIcon,
-      title: "Pilih komik",
+      title: "Pilih cerita",
       body: "Buka satu cerita dan baca bab pembukanya.",
     },
     {
       icon: PenIcon,
       title: "Tentukan arahnya",
-      body: "Pilih ke mana kisah melaju — kamu penulisnya.",
+      body: "Pilih ke mana kisah melaju. Kamu penulisnya.",
     },
     {
       icon: SparkleIcon,
@@ -118,11 +118,11 @@ export default async function HomePage({
           <div className="relative mx-auto w-full max-w-5xl px-4 py-20 sm:py-28">
             <div className="max-w-2xl">
               <h1 className="text-4xl font-black leading-[1.05] tracking-tight sm:text-6xl">
-                Tulis takdirmu sendiri.
+                Kamu yang menulis ceritanya.
               </h1>
               <p className="mt-5 max-w-xl text-lg text-white/90">
-                Selami dunia tempat setiap pilihanmu melahirkan bab baru —
-                cerita bercabang tanpa batas yang ditulis khusus untukmu.
+                Selami dunia di mana setiap pilihanmu melahirkan bab baru.
+                Cerita bercabang tanpa batas yang dibuat khusus untukmu.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
@@ -168,7 +168,7 @@ export default async function HomePage({
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold tracking-tight">
-                Jelajahi komik
+                Jelajahi cerita
               </h2>
               <p className="mt-1 text-sm text-muted">
                 Pilih satu, dan mulailah menentukan alurnya.
@@ -178,7 +178,7 @@ export default async function HomePage({
               href="/jelajah"
               className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-brand-50 px-3.5 py-1.5 text-sm font-semibold text-brand-600 transition-colors hover:bg-brand-100 dark:bg-brand-600/15 dark:text-brand-400"
             >
-              Cari komik
+              Cari cerita
               <ArrowRightIcon className="h-4 w-4" />
             </Link>
           </div>
@@ -188,9 +188,9 @@ export default async function HomePage({
               <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-600/15 dark:text-brand-400">
                 <BookIcon className="h-6 w-6" />
               </span>
-              <p className="mt-4 font-medium">Belum ada komik di sini</p>
+              <p className="mt-4 font-medium">Belum ada cerita di sini</p>
               <p className="mt-1 text-sm text-muted">
-                Cerita baru sedang disiapkan — nantikan, ya!
+                Cerita baru sedang disiapkan. Nantikan, ya!
               </p>
             </div>
           ) : (
@@ -245,9 +245,9 @@ export default async function HomePage({
               href="/buat"
               className="font-semibold text-brand-600 hover:underline dark:text-brand-400"
             >
-              Buat & terbitkan komikmu
-            </Link>{" "}
-            — pembaca lain yang menentukan alurnya.
+              Buat & terbitkan ceritamu
+            </Link>
+            , pembaca lain yang menentukan alurnya.
           </p>
           </section>
         </div>
@@ -259,9 +259,9 @@ export default async function HomePage({
               Ceritamu menunggu untuk ditulis.
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-muted">
-              Baca kisah bercabang — atau{" "}
+              Baca kisah bercabang, atau{" "}
               <span className="font-semibold text-foreground">
-                terbitkan komikmu sendiri
+                terbitkan ceritamu sendiri
               </span>
               . Siapa pun bisa jadi penulisnya di sini; cukup tulis bab
               pembukanya (atau minta bantuan AI), pembaca lain yang melanjutkan.
@@ -278,7 +278,7 @@ export default async function HomePage({
                 href="/jelajah"
                 className="inline-flex items-center gap-2 rounded-full border border-border px-6 py-3 font-semibold transition-colors hover:bg-brand-50 dark:hover:bg-brand-600/15"
               >
-                Jelajahi komik
+                Jelajahi cerita
                 <ArrowRightIcon className="h-4 w-4" />
               </Link>
             </div>

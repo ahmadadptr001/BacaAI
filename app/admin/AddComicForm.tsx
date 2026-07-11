@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState, useRef, useTransition, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   createComic,
   suggestComicDraft,
@@ -8,33 +10,43 @@ import {
 } from "@/app/actions/stories";
 import Spinner from "@/components/Spinner";
 import { useToast } from "@/components/Toast";
-import { SparkleIcon, CheckIcon } from "@/components/icons";
+import { SparkleIcon, CheckIcon, ArrowRightIcon } from "@/components/icons";
+import ChapterProse from "@/app/comics/[comicId]/ChapterProse";
 
 const initial: StoryActionState = {};
 
 type PreviewStatus = "idle" | "loading" | "ok" | "error";
 
+// Uneven widths make the loading skeleton read like real prose being written.
+const SKELETON = ["92%", "98%", "85%", "70%", "95%", "60%"];
+
 export default function AddComicForm({
-  submitLabel = "Tambah komik",
+  submitLabel = "Tambah cerita",
+  redirectOnSuccess = false,
 }: {
   submitLabel?: string;
+  redirectOnSuccess?: boolean;
 }) {
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
-  const storyRef = useRef<HTMLTextAreaElement>(null);
+  const [story, setStory] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [preview, setPreview] = useState<PreviewStatus>("idle");
   const [suggesting, startSuggest] = useTransition();
   const toast = useToast();
 
-  // Run the create, then clear the form on success (setState inside an action
-  // is fine — the lint rule only forbids it inside effects).
   const [state, action, pending] = useActionState(
     async (prev: StoryActionState, formData: FormData) => {
       const result = await createComic(prev, formData);
       if (result.ok) {
+        if (redirectOnSuccess && result.comicId) {
+          router.push(`/comics/${result.comicId}`);
+          return result;
+        }
         formRef.current?.reset();
+        setStory("");
         setImageUrl("");
         setPreview("idle");
       }
@@ -52,24 +64,20 @@ export default function AddComicForm({
     startSuggest(async () => {
       const result = await suggestComicDraft({
         title: titleRef.current?.value ?? "",
-        // Use whatever's already in the synopsis box as a rough idea/steer.
         hint: descRef.current?.value ?? "",
       });
       if (result.error || !result.draft) {
         toast.showToast(result.error ?? "Gagal membuat rekomendasi.", "error");
         return;
       }
-      const { title, description, story, imageUrl: url } = result.draft;
+      const { title, description, story: s, imageUrl: url } = result.draft;
       if (titleRef.current && !titleRef.current.value.trim()) {
         titleRef.current.value = title;
       }
       if (descRef.current) descRef.current.value = description;
-      if (storyRef.current) storyRef.current.value = story;
+      setStory(s);
       changeImageUrl(url);
-      toast.showToast(
-        "Rekomendasi AI dimuat — silakan tinjau & sesuaikan.",
-        "success"
-      );
+      toast.showToast("Bab 1 selesai ditulis AI, tinjau & sesuaikan.", "success");
     });
   }
 
@@ -87,7 +95,7 @@ export default function AddComicForm({
         <input ref={titleRef} name="title" required className={inputClass} />
       </label>
 
-      {/* AI recommendation: drafts title, synopsis, Bab 1, and a cover image. */}
+      {/* AI recommendation */}
       <div className="flex flex-col gap-2 rounded-xl border border-dashed border-brand-400/50 bg-brand-50/50 p-3 dark:bg-brand-600/10">
         <button
           type="button"
@@ -105,7 +113,7 @@ export default function AddComicForm({
           )}
         </button>
         <p className="text-xs text-muted">
-          Isi judul (dan ide singkat di kolom sinopsis) lalu klik — AI menyusun
+          Isi judul (dan ide singkat di kolom sinopsis) lalu klik, AI menyusun
           sinopsis, Bab 1, dan gambar sampulnya untuk kamu tinjau.
         </p>
       </div>
@@ -124,14 +132,46 @@ export default function AddComicForm({
       <label className="flex flex-col gap-1 text-sm font-medium">
         Cerita awal (Bab 1)
         <textarea
-          ref={storyRef}
           name="story"
+          value={story}
+          onChange={(e) => setStory(e.target.value)}
           rows={5}
           required
           className={inputClass}
-          placeholder="Tulis pembuka cerita. AI akan membuat pilihan lanjutannya."
+          placeholder="Tulis pembuka cerita, atau biarkan AI menuliskannya. Pembaca menentukan lanjutannya."
         />
       </label>
+
+      {/* Bab 1 — generated like a real chapter, with a unique styled preview. */}
+      {suggesting ? (
+        <div className="rounded-2xl border border-brand-400/40 bg-brand-50/40 p-5 dark:bg-brand-600/10">
+          <p className="flex items-center gap-2 text-sm font-semibold text-brand-600 dark:text-brand-400">
+            <SparkleIcon className="h-4 w-4 animate-pulse" />
+            AI sedang menulis Bab 1…
+          </p>
+          <div className="mt-4 space-y-2.5">
+            {SKELETON.map((w, i) => (
+              <div
+                key={i}
+                className="h-3 animate-pulse rounded-full bg-brand-400/25"
+                style={{ width: w }}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        story.trim() && (
+          <div className="rounded-2xl border border-border bg-background p-5">
+            <div className="mb-1 flex items-center gap-2">
+              <SparkleIcon className="h-4 w-4 text-brand-500" />
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-500">
+                Pratinjau Bab 1
+              </p>
+            </div>
+            <ChapterProse text={story} />
+          </div>
+        )
+      )}
 
       <label className="flex flex-col gap-1 text-sm font-medium">
         URL gambar
@@ -145,7 +185,7 @@ export default function AddComicForm({
         />
       </label>
 
-      {/* Preview so the admin can see whether the image URL actually loads. */}
+      {/* Cover preview */}
       {imageUrl.trim() && (
         <div className="flex flex-col gap-2 rounded-xl border border-border bg-background p-3">
           <div className="flex items-center gap-2 text-xs font-medium">
@@ -162,7 +202,7 @@ export default function AddComicForm({
             )}
             {preview === "error" && (
               <span className="text-accent-500">
-                URL gambar tidak bisa dimuat — periksa lagi.
+                URL gambar tidak bisa dimuat, periksa lagi.
               </span>
             )}
           </div>
@@ -188,9 +228,18 @@ export default function AddComicForm({
         </p>
       )}
       {state.message && (
-        <p className="rounded-lg bg-brand-50 p-3 text-sm text-brand-600 dark:bg-brand-600/20 dark:text-brand-400">
-          {state.message}
-        </p>
+        <div className="rounded-lg bg-brand-50 p-3 text-sm text-brand-600 dark:bg-brand-600/20 dark:text-brand-400">
+          <p>{state.message}</p>
+          {state.comicId && (
+            <Link
+              href={`/comics/${state.comicId}`}
+              className="mt-1.5 inline-flex items-center gap-1 font-semibold underline"
+            >
+              Lihat ceritanya
+              <ArrowRightIcon width={14} height={14} />
+            </Link>
+          )}
+        </div>
       )}
 
       <button

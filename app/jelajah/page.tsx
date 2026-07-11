@@ -8,7 +8,7 @@ import type { Comic, UserProgress } from "@/lib/types";
 
 const PAGE_SIZE = 9;
 
-export const metadata = { title: "Cari komik — BacaAi" };
+export const metadata = { title: "Cari cerita · BacaAi" };
 
 export default async function ExplorePage({
   searchParams,
@@ -62,7 +62,7 @@ export default async function ExplorePage({
     <>
       <Navbar />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
-        <h1 className="text-2xl font-extrabold tracking-tight">Cari komik</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight">Cari cerita</h1>
         <p className="mt-1 text-sm text-muted">
           Temukan kisah fantasi berikutnya untuk kamu tulis.
         </p>
@@ -74,7 +74,7 @@ export default async function ExplorePage({
               name="q"
               defaultValue={q}
               placeholder="Cari judul atau tema…"
-              aria-label="Cari komik"
+              aria-label="Cari cerita"
               className="w-full rounded-full border border-border bg-card py-2.5 pl-11 pr-4 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-400/40"
             />
           </div>
@@ -92,7 +92,7 @@ export default async function ExplorePage({
               {total} hasil untuk <span className="font-medium">“{q}”</span>
             </>
           ) : (
-            `${total} komik`
+            `${total} cerita`
           )}
         </p>
 
@@ -102,19 +102,19 @@ export default async function ExplorePage({
               <BookIcon className="h-6 w-6" />
             </span>
             <p className="mt-4 font-medium">
-              {q ? "Tidak ada komik yang cocok" : "Belum ada komik"}
+              {q ? "Tidak ada cerita yang cocok" : "Belum ada cerita"}
             </p>
             <p className="mt-1 text-sm text-muted">
               {q ? (
                 <>
                   Coba kata kunci lain, atau{" "}
                   <Link href="/jelajah" className="text-brand-600 underline">
-                    lihat semua komik
+                    lihat semua cerita
                   </Link>
                   .
                 </>
               ) : (
-                "Cerita baru sedang disiapkan — nantikan, ya!"
+                "Cerita baru sedang disiapkan. Nantikan, ya!"
               )}
             </p>
           </div>

@@ -16,7 +16,7 @@ export default function ComicActions({
   const [isPending, startTransition] = useTransition();
 
   function remove() {
-    if (!confirm(`Hapus komik "${title}"? Tindakan ini tidak bisa dibatalkan.`)) {
+    if (!confirm(`Hapus cerita "${title}"? Tindakan ini tidak bisa dibatalkan.`)) {
       return;
     }
     startTransition(async () => {

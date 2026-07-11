@@ -4,7 +4,7 @@ import AuthForm from "@/components/AuthForm";
 import GoogleButton from "@/components/GoogleButton";
 import { BrandMark } from "@/components/icons";
 
-export const metadata = { title: "Daftar — BacaAi" };
+export const metadata = { title: "Daftar · BacaAi" };
 
 export default async function RegisterPage({
   searchParams,
@@ -27,8 +27,8 @@ export default async function RegisterPage({
             Buat akun BacaAi
           </h1>
           <p className="mt-1 text-sm text-muted">
-            Daftar untuk mulai menulis takdir ceritamu sendiri. Bisa langsung
-            dipakai — tanpa perlu konfirmasi email.
+            Daftar untuk mulai menulis ceritamu sendiri. Bisa langsung dipakai,
+            tanpa perlu konfirmasi email.
           </p>
 
           <div className="mt-6">

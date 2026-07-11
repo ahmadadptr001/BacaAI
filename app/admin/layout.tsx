@@ -3,7 +3,7 @@ import Navbar from "@/components/Navbar";
 import { getAuthContext } from "@/lib/authz";
 import AdminNav from "./AdminNav";
 
-export const metadata = { title: "Dashboard Admin — BacaAi" };
+export const metadata = { title: "Dashboard Admin · BacaAi" };
 
 /**
  * Shared admin shell: guards the whole /admin section to admins only and

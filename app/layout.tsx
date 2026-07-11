@@ -11,9 +11,9 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "BacaAi — Komik Interaktif",
+  title: "BacaAi — Cerita Interaktif",
   description:
-    "Baca komik bercabang di mana pilihanmu menentukan jalan ceritanya.",
+    "Baca cerita bercabang di mana pilihanmu menentukan jalan ceritanya.",
 };
 
 // Runs before hydration to apply the saved theme and avoid a flash.

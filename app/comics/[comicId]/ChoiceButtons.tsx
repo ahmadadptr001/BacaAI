@@ -57,6 +57,8 @@ export default function ChoiceButtons({
       setCustom("");
       router.push(`/comics/${comicId}`);
       router.refresh();
+      // Start the new chapter from the top, ready to read.
+      window.scrollTo({ top: 0, behavior: "smooth" });
     });
   }
 
@@ -76,6 +78,34 @@ export default function ChoiceButtons({
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Full-page block + unique loading screen while the chapter is written. */}
+      {isPending && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-md"
+          role="alert"
+          aria-live="assertive"
+        >
+          <div className="mx-4 w-full max-w-sm rounded-3xl border border-border bg-card p-7 text-center shadow-2xl">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg">
+              <PenIcon className="h-7 w-7 animate-bounce" />
+            </div>
+            <p className="mt-4 text-base font-bold">Menyusun bab berikutnya…</p>
+            <p className="mt-1 text-sm text-muted">
+              AI sedang menulis kelanjutan ceritamu.
+            </p>
+            <div className="mt-5 space-y-2.5 text-left">
+              {["90%", "98%", "82%", "70%"].map((w, i) => (
+                <div
+                  key={i}
+                  className="h-2.5 animate-pulse rounded-full bg-brand-400/25"
+                  style={{ width: w, animationDelay: `${i * 150}ms` }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {choices.map((choice) => {
         const isActive = activeId === choice.id;
         return (

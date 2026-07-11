@@ -115,7 +115,7 @@ export default async function AdminOverviewPage() {
           <span className="text-xs text-muted">{DAYS} hari terakhir</span>
         </div>
         <p className="mb-4 text-sm text-muted">
-          Jumlah komik baru yang masuk tiap hari.
+          Jumlah cerita baru yang masuk tiap hari.
         </p>
         <AreaChart data={series} unit="cerita" />
       </section>
@@ -176,13 +176,13 @@ export default async function AdminOverviewPage() {
           className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
         >
           <PenIcon className="h-4 w-4" />
-          Tambah komik
+          Tambah cerita
         </Link>
         <Link
           href="/admin/komik"
           className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-brand-50 dark:hover:bg-brand-600/15"
         >
-          Kelola komik
+          Kelola cerita
           <ArrowRightIcon className="h-4 w-4" />
         </Link>
       </div>

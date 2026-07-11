@@ -4,7 +4,7 @@ import AddComicForm from "@/app/admin/AddComicForm";
 import { getAuthContext } from "@/lib/authz";
 import { PenIcon } from "@/components/icons";
 
-export const metadata = { title: "Buat cerita — BacaAi" };
+export const metadata = { title: "Buat cerita · BacaAi" };
 
 export default async function CreateStoryPage() {
   const { user } = await getAuthContext();
@@ -21,12 +21,12 @@ export default async function CreateStoryPage() {
           Buat ceritamu sendiri
         </h1>
         <p className="mt-1 text-sm text-muted">
-          Tulis judul dan bab pembukanya — atau minta bantuan AI. Pembaca lain
+          Tulis judul dan bab pembukanya, atau minta bantuan AI. Pembaca lain
           yang akan menentukan ke mana kisahmu melaju.
         </p>
 
         <div className="mt-6">
-          <AddComicForm submitLabel="Terbitkan cerita" />
+          <AddComicForm submitLabel="Terbitkan cerita" redirectOnSuccess />
         </div>
       </main>
     </>

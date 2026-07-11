@@ -58,7 +58,7 @@ export default async function HistoryPage() {
           <p className="mt-6 rounded-2xl border border-border bg-card p-6 text-muted">
             Kamu belum membuat pilihan apa pun.{" "}
             <Link href="/" className="font-medium text-brand-500 underline">
-              Mulai sebuah komik
+              Mulai sebuah cerita
             </Link>
             .
           </p>

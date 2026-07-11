@@ -20,7 +20,7 @@ export async function deleteComic(comicId: string): Promise<AdminActionState> {
 
   const admin = createAdminClient();
   const { error } = await admin.from("comics").delete().eq("id", comicId);
-  if (error) return { error: "Gagal menghapus komik." };
+  if (error) return { error: "Gagal menghapus cerita." };
 
   revalidatePath("/admin");
   revalidatePath("/admin/komik");

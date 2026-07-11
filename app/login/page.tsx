@@ -4,7 +4,7 @@ import AuthForm from "@/components/AuthForm";
 import GoogleButton from "@/components/GoogleButton";
 import { BrandMark } from "@/components/icons";
 
-export const metadata = { title: "Masuk — BacaAi" };
+export const metadata = { title: "Masuk · BacaAi" };
 
 export default async function LoginPage({
   searchParams,

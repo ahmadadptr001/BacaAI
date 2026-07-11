@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import UserActions from "../UserActions";
 import { CheckIcon } from "@/components/icons";
 
-export const metadata = { title: "Pengguna — BacaAi" };
+export const metadata = { title: "Pengguna · BacaAi" };
 
 interface AdminUserRow {
   id: string;

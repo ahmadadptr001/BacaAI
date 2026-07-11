@@ -4,7 +4,7 @@ import ComicActions from "../ComicActions";
 import { PlusIcon } from "@/components/icons";
 import type { Comic } from "@/lib/types";
 
-export const metadata = { title: "Komik — BacaAi" };
+export const metadata = { title: "Cerita · BacaAi" };
 
 export default async function AdminComicsPage() {
   const admin = createAdminClient();
@@ -18,7 +18,7 @@ export default async function AdminComicsPage() {
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-lg font-bold">
-          Komik <span className="text-muted">({comicList.length})</span>
+          Cerita <span className="text-muted">({comicList.length})</span>
         </h2>
         <Link
           href="/admin/tambah"
@@ -31,7 +31,7 @@ export default async function AdminComicsPage() {
 
       {comicList.length === 0 ? (
         <p className="rounded-2xl border border-border bg-card p-5 text-sm text-muted">
-          Belum ada komik.{" "}
+          Belum ada cerita.{" "}
           <Link href="/admin/tambah" className="text-brand-600 underline">
             Buat yang pertama
           </Link>

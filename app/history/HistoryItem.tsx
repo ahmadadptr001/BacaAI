@@ -53,7 +53,7 @@ export default function HistoryItem({
         )}
         <div className="min-w-0 flex-1">
           <h2 className="truncate font-bold">
-            {comic?.title ?? "Komik tanpa judul"}
+            {comic?.title ?? "Cerita tanpa judul"}
           </h2>
           <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
             <BookIcon className="h-3.5 w-3.5" />
@@ -73,7 +73,7 @@ export default function HistoryItem({
 
       {history.length === 0 ? (
         <p className="border-t border-border p-4 text-sm text-muted">
-          Baru bab pembuka — belum ada persimpangan.
+          Baru bab pembuka, belum ada persimpangan.
         </p>
       ) : (
         <>

@@ -12,6 +12,8 @@ export interface StoryActionState {
   ok?: boolean;
   error?: string;
   message?: string;
+  /** Id of the story just created, for linking/redirecting to it. */
+  comicId?: string;
 }
 
 export interface ComicDraft {
@@ -142,5 +144,5 @@ export async function createComic(
   revalidatePath("/jelajah");
   revalidatePath("/admin");
   revalidatePath("/admin/komik");
-  return { ok: true, message };
+  return { ok: true, message, comicId: comic.id };
 }

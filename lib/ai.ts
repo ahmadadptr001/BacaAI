@@ -70,7 +70,8 @@ tokoh di dalamnya. Jadi setiap opsi ditulis sebagai arah/kelanjutan alur dari
 sudut pandang naratif (mis. "Perlihatkan masa lalu sang tokoh", "Bawa kisah ke
 konfrontasi di atap kota"), BUKAN perintah orang kedua seperti "Kamu membuka pintu".
 Nada ceritanya ramah, penuh petualangan, dan hidup. Tulis SEMUA teks dalam
-Bahasa Indonesia yang natural.
+Bahasa Indonesia yang natural. JANGAN gunakan tanda pisah em-dash ("—" atau
+" - ") di dalam kalimat; pakai koma, titik, atau pecah jadi kalimat baru.
 
 Jaga KONSISTENSI tokoh utama dan alur inti (nama, sifat, hubungan, kejadian
 penting). NAMUN jangan monoton: kembangkan cerita ke situasi dan latar yang
